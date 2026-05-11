@@ -262,6 +262,78 @@ Print:
    ▸ Effects:    [N]
 ```
 
+### A3.5 — Extract & Upload Assets
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  Step A3.5 · Assets                     │
+└─────────────────────────────────────────┘
+  ↻  Scanning for images and icons...
+```
+
+Walk the component tree collected in A2. For each node where `type === "RECTANGLE"` or `type === "FRAME"` and the fill contains an image (`type === "IMAGE"`), collect the `imageHash`.
+
+Also collect any nodes with `type === "VECTOR"` that appear to be icons (name contains "icon", "ico", "/ic/", or the node is inside a component named with Icon keywords from the classification table).
+
+**If assets found:**
+
+```
+◇  Found [N] images and [M] icons.
+   Download and include in web/assets/? (y/n)
+```
+
+If yes:
+
+1. For each image hash, call `mcp__plugin_figma_figma__get_screenshot` on the node to capture it.
+
+2. Write each image to `[OUTPUT_DIR]/web/assets/[node-name-slug].[ext]` using the Write tool.
+
+3. For SVG icons: use `use_figma` to export the vector node:
+```javascript
+await figma.setCurrentPageAsync(/* correct page */);
+const node = figma.currentPage.findOne(n => n.id === nodeId);
+const svg = await node.exportAsync({ format: 'SVG' });
+return { svg: String.fromCharCode(...svg) };
+```
+Write to `[OUTPUT_DIR]/web/assets/icons/[icon-name].svg`.
+
+4. If any assets have localhost URLs returned by the MCP — use them directly. Do not create placeholder imports or reference icon packages.
+
+5. Call `mcp__plugin_figma_figma__upload_assets` for any assets that need to be re-uploaded to Figma (e.g. for use in previews):
+```javascript
+// upload_assets accepts an array of { url, name } objects
+// Returns asset references usable in use_figma calls
+```
+
+6. Write `[OUTPUT_DIR]/web/assets/manifest.json`:
+```json
+{
+  "images": [
+    { "name": "hero-bg", "file": "assets/hero-bg.png", "figmaNodeId": "..." }
+  ],
+  "icons": [
+    { "name": "chevron-right", "file": "assets/icons/chevron-right.svg", "figmaNodeId": "..." }
+  ]
+}
+```
+
+Print:
+```
+✔  Assets extracted
+   ▸ [N] images   →  web/assets/
+   ▸ [M] icons    →  web/assets/icons/
+```
+
+If no assets found or user skips:
+```
+○  No assets — skipping
+```
+
+Proceed to A4.
+
+---
+
 ### A4 — Classify Components (Atomic Design)
 
 Print `◆  Classifying components...`
@@ -494,83 +566,129 @@ Print:
 
 Read `[SOURCE_DIR]/tokens/colors.json`, `typography.json`, `spacing.json`, `effects.json`.
 
-Create **4 variable collections** via `use_figma`, one at a time:
+**Token architecture — two layers:**
 
-#### Collection 1 — Colors
+Every color token is created twice: once as a **primitive** (raw value) and once as a **semantic alias** (references the primitive). This is the correct Figma token structure — designers get semantic names in pickers, and Dark mode only needs to override the semantic layer.
 
-```javascript
-// Create collection with Light and Dark modes
-const collection = figma.variables.createVariableCollection('Colors');
-const lightMode = collection.defaultModeId; // rename to 'Light'
-const darkMode = collection.addMode('Dark');
-collection.renameMode(lightMode, 'Light');
-
-// For each color token:
-const v = figma.variables.createVariable('color/[token-name]', collection, 'COLOR');
-v.setValueForMode(lightMode, { r, g, b, a }); // parsed from hex/rgba
-v.setValueForMode(darkMode, { r, g, b, a });  // same value unless dark variant exists
-v.scopes = ['ALL_FILLS', 'STROKE_COLOR', 'EFFECT_COLOR'];
-v.codeSyntax = { WEB: 'var(--color-[token-name])' };
-return { collectionId: collection.id, variableIds: [...] };
+```
+Primitives collection:  primitive/blue-500 = #2670E9
+Semantic collection:    color/brand        = {primitive/blue-500}  ← alias
 ```
 
-Parse hex to 0–1 RGB: `r = parseInt(hex.slice(1,3),16)/255`.
-For 8-digit hex (#RRGGBBAA): alpha = `parseInt(hex.slice(7,9),16)/255`.
-For rgba(): parse each channel directly.
+Create **5 variable collections** via `use_figma`, one at a time:
 
-#### Collection 2 — Typography
+#### Collection 1 — Primitives (raw values, hidden from pickers)
+
+```javascript
+const primColl = figma.variables.createVariableCollection('Primitives');
+const primMode = primColl.defaultModeId;
+primColl.renameMode(primMode, 'Global');
+
+// For each color token — store raw hex as primitive:
+const pv = figma.variables.createVariable(`primitive/${tokenName}`, primColl, 'COLOR');
+pv.setValueForMode(primMode, hexToRgb(hexValue));
+pv.scopes = [];          // empty = hidden from all pickers (raw values only)
+pv.codeSyntax = {};      // no code syntax on primitives
+
+return { primCollId: primColl.id, primitiveIds: { [tokenName]: pv.id, ... } };
+```
+
+#### Collection 2 — Colors (semantic aliases, with Light + Dark modes)
+
+```javascript
+const semColl = figma.variables.createVariableCollection('Colors');
+const lightMode = semColl.defaultModeId;
+const darkMode = semColl.addMode('Dark');
+semColl.renameMode(lightMode, 'Light');
+
+// For each semantic color token — alias to the matching primitive:
+const sv = figma.variables.createVariable(`color/${semanticName}`, semColl, 'COLOR');
+
+// Light mode: alias to primitive
+sv.setValueForMode(lightMode, figma.variables.createVariableAlias(
+  figma.variables.getVariableById(primitiveIds[lightTokenName])
+));
+
+// Dark mode: alias to dark primitive (or same primitive if no dark variant)
+sv.setValueForMode(darkMode, figma.variables.createVariableAlias(
+  figma.variables.getVariableById(primitiveIds[darkTokenName] || primitiveIds[lightTokenName])
+));
+
+sv.scopes = ['ALL_FILLS', 'STROKE_COLOR', 'EFFECT_COLOR'];
+sv.codeSyntax = { WEB: `var(--color-${semanticName})` };
+
+return { semCollId: semColl.id, semanticIds: { [semanticName]: sv.id, ... } };
+```
+
+**Mapping rule:** match token names that contain `-dark`, `dark-mode/`, or `dark/` suffix to the Dark mode. All others map to both modes with the same primitive. If a dark variant doesn't exist, alias both modes to the same primitive.
+
+Parse hex to 0–1 RGB:
+- 6-digit hex: `r = parseInt(hex.slice(1,3),16)/255`
+- 8-digit hex (#RRGGBBAA): alpha = `parseInt(hex.slice(7,9),16)/255`
+- rgba(): parse each channel directly
+
+#### Collection 3 — Typography
 
 ```javascript
 const collection = figma.variables.createVariableCollection('Typography');
 const mode = collection.defaultModeId;
 collection.renameMode(mode, 'Default');
 
-// Font size variables
-const sizeVar = figma.variables.createVariable('font-size/[scale-name]', collection, 'FLOAT');
-sizeVar.setValueForMode(mode, [numeric px value]);
+// Font size — one variable per scale
+const sizeVar = figma.variables.createVariable(`font-size/${scaleName}`, collection, 'FLOAT');
+sizeVar.setValueForMode(mode, numericPxValue);
 sizeVar.scopes = ['FONT_SIZE'];
-sizeVar.codeSyntax = { WEB: 'var(--font-size-[scale-name])' };
+sizeVar.codeSyntax = { WEB: `var(--font-size-${scaleName})` };
 
-// Font weight variables
-const weightVar = figma.variables.createVariable('font-weight/[scale-name]', collection, 'FLOAT');
-weightVar.setValueForMode(mode, [numeric weight]);
+// Font weight — one variable per scale
+const weightVar = figma.variables.createVariable(`font-weight/${scaleName}`, collection, 'FLOAT');
+weightVar.setValueForMode(mode, numericWeight);
 weightVar.scopes = ['FONT_WEIGHT'];
-weightVar.codeSyntax = { WEB: 'var(--font-weight-[scale-name])' };
+weightVar.codeSyntax = { WEB: `var(--font-weight-${scaleName})` };
+
+// Line height — one variable per scale (store as px, not ratio)
+const lhVar = figma.variables.createVariable(`line-height/${scaleName}`, collection, 'FLOAT');
+lhVar.setValueForMode(mode, numericLineHeightPx);
+lhVar.scopes = ['LINE_HEIGHT'];
+lhVar.codeSyntax = { WEB: `var(--line-height-${scaleName})` };
 ```
 
-#### Collection 3 — Spacing
+#### Collection 4 — Spacing
 
 ```javascript
 const collection = figma.variables.createVariableCollection('Spacing');
 const mode = collection.defaultModeId;
 collection.renameMode(mode, 'Default');
 
-const v = figma.variables.createVariable('spacing/[name]', collection, 'FLOAT');
-v.setValueForMode(mode, [numeric px value — convert rem: multiply by 16]);
+const v = figma.variables.createVariable(`spacing/${name}`, collection, 'FLOAT');
+v.setValueForMode(mode, remToPx(value)); // multiply rem by 16
 v.scopes = ['WIDTH_HEIGHT', 'GAP', 'HORIZONTAL_PADDING', 'VERTICAL_PADDING'];
-v.codeSyntax = { WEB: 'var(--spacing-[name])' };
+v.codeSyntax = { WEB: `var(--spacing-${name})` };
 ```
 
-#### Collection 4 — Radius & Effects
+#### Collection 5 — Radius
 
 ```javascript
-// Radius
 const collection = figma.variables.createVariableCollection('Radius');
-const v = figma.variables.createVariable('radius/[name]', collection, 'FLOAT');
-v.setValueForMode(mode, [numeric px value]);
+const mode = collection.defaultModeId;
+collection.renameMode(mode, 'Default');
+
+const v = figma.variables.createVariable(`radius/${name}`, collection, 'FLOAT');
+v.setValueForMode(mode, numericPxValue);
 v.scopes = ['CORNER_RADIUS'];
-v.codeSyntax = { WEB: 'var(--radius-[name])' };
+v.codeSyntax = { WEB: `var(--radius-${name})` };
 ```
 
-After all 4 collections, print:
+After all 5 collections, print:
 ```
   ████████████████  100%
 
   ── Variable collections ────────────────
-  ✔  Colors       [N] variables  (Light + Dark modes)
-  ✔  Typography   [N] variables
-  ✔  Spacing      [N] variables
-  ✔  Radius       [N] variables
+  ✔  Primitives   [N] raw values   (hidden from pickers)
+  ✔  Colors       [N] semantic     (Light + Dark modes)
+  ✔  Typography   [N] scales       (size + weight + line-height)
+  ✔  Spacing      [N] values
+  ✔  Radius       [N] values
   ── Total: [N] variables ────────────────
 ```
 
@@ -685,17 +803,20 @@ const targetPageId = category === 'atom' ? atomsPageId
 await figma.setCurrentPageAsync(figma.root.findOne(n => n.id === targetPageId));
 ```
 
-**C6b — Create component set with variants:**
+**C6b — Create component set with variants + component properties:**
 
-Read the component's props from `data.json` to identify variant dimensions (e.g. `variant`, `size`, `state`).
+Read the component's props from `data.json` to identify:
+- Variant dimensions: props with union types → Figma variant properties (e.g. `variant`, `size`)
+- Boolean props → Figma BOOLEAN component properties (e.g. `disabled`, `loading`)
+- String/text props → Figma TEXT component properties (e.g. `label`, `placeholder`)
+- ReactNode/slot props → Figma INSTANCE_SWAP or SLOT properties (e.g. `icon`, `leftSlot`)
 
 ```javascript
-// Create one component per variant combination
+// ── Step 1: create one component per variant combination ──────
 const components = [];
 for (const variantCombo of allVariantCombinations) {
   const comp = figma.createComponent();
   comp.name = Object.entries(variantCombo).map(([k,v]) => `${k}=${v}`).join(', ');
-  comp.resize(componentWidth, componentHeight);
 
   // Auto-layout
   comp.layoutMode = 'HORIZONTAL';
@@ -704,8 +825,10 @@ for (const variantCombo of allVariantCombinations) {
   comp.paddingLeft = comp.paddingRight = tokenValue('spacing', 'button-padding-x') || 12;
   comp.paddingTop = comp.paddingBottom = tokenValue('spacing', 'button-padding-y') || 4;
   comp.itemSpacing = tokenValue('spacing', 'gap') || 8;
+  comp.layoutSizingX = 'HUG';
+  comp.layoutSizingY = 'HUG';
 
-  // Background fill — bind to color variable
+  // Background fill — bind to semantic color variable
   const bgVar = resolveComponentToken(variantCombo, 'backgroundColor');
   if (bgVar) {
     const fill = figma.util.solidPaint('#000000');
@@ -721,27 +844,83 @@ for (const variantCombo of allVariantCombinations) {
     comp.setBoundVariable('bottomRightRadius', radiusVar);
   }
 
-  // Label text node
+  // ── Icon slot (left) — create placeholder frame ───────────
+  // Only if component has an icon/leftSlot prop
+  if (hasIconProp) {
+    const iconFrame = figma.createFrame();
+    iconFrame.name = 'icon';
+    iconFrame.resize(16, 16);
+    iconFrame.fills = [];
+    iconFrame.layoutMode = 'HORIZONTAL';
+    iconFrame.primaryAxisAlignItems = 'CENTER';
+    iconFrame.counterAxisAlignItems = 'CENTER';
+    comp.appendChild(iconFrame);
+    // INSTANCE_SWAP property will be bound to this frame in Step 2
+  }
+
+  // ── Label text node ────────────────────────────────────────
   await figma.loadFontAsync({ family: 'Inter', style: 'Medium' });
   const label = figma.createText();
+  label.name = 'label';
   label.fontName = { family: 'Inter', style: 'Medium' };
   label.fontSize = 13;
   label.characters = componentName;
-  label.fills = [{ type: 'SOLID', color: resolveTextColor(variantCombo) }];
+
+  // Bind text color to semantic variable
+  const textColorVar = resolveComponentToken(variantCombo, 'textColor');
+  if (textColorVar) {
+    const fill = figma.util.solidPaint('#000000');
+    label.fills = [figma.variables.setBoundVariableForPaint(fill, 'color', textColorVar)];
+  }
+  // TEXT property will be bound to this node in Step 2
   comp.appendChild(label);
 
   components.push(comp);
 }
 
-// Combine into ComponentSet
+// ── Step 2: combine into ComponentSet ─────────────────────────
+// appendChild must happen BEFORE combineAsVariants
 const set = figma.combineAsVariants(components, figma.currentPage);
 set.name = componentName;
 
-// Position on page — lay out in a grid (4 per row, 200px spacing)
-set.x = (componentIndex % 4) * 220 + 40;
-set.y = Math.floor(componentIndex / 4) * 160 + 40;
+// ── Step 3: add component properties to the set ───────────────
+// These appear in Figma's right panel for designers — critical for usability
 
-return { componentSetId: set.id, nodeIds: components.map(c => c.id) };
+// TEXT property — bound to label node
+set.addComponentProperty('label', 'TEXT', componentName);
+for (const comp of set.children) {
+  const labelNode = comp.findOne(n => n.name === 'label' && n.type === 'TEXT');
+  if (labelNode) labelNode.componentPropertyReferences = { characters: `label#${set.name}` };
+}
+
+// BOOLEAN properties — one per boolean prop (disabled, loading, etc.)
+for (const boolProp of booleanProps) {
+  set.addComponentProperty(boolProp.name, 'BOOLEAN', boolProp.default ?? false);
+  // Bind to visibility of the relevant child node if one exists
+  for (const comp of set.children) {
+    const targetNode = comp.findOne(n => n.name === boolProp.name);
+    if (targetNode) {
+      targetNode.componentPropertyReferences = { visible: `${boolProp.name}#${set.name}` };
+    }
+  }
+}
+
+// INSTANCE_SWAP property — bound to icon frame
+if (hasIconProp) {
+  set.addComponentProperty('icon', 'INSTANCE_SWAP', null);
+  for (const comp of set.children) {
+    const iconFrame = comp.findOne(n => n.name === 'icon');
+    if (iconFrame) {
+      iconFrame.componentPropertyReferences = { mainComponent: `icon#${set.name}` };
+    }
+  }
+}
+
+// ── Step 4: position on page grid ─────────────────────────────
+set.x = (componentIndex % 4) * 260 + 40;
+set.y = Math.floor(componentIndex / 4) * 200 + 40;
+
+return { componentSetId: set.id, nodeIds: set.children.map(c => c.id) };
 ```
 
 **Helper functions to define at the top of each C6 call:**
@@ -757,18 +936,18 @@ function hexToRgb(hex) {
 }
 
 function tokenValue(collection, name) {
-  const v = figma.variables.getLocalVariables()
-    .find(v => v.name === `${collection}/${name}`);
-  return v ? Object.values(v.valuesByMode)[0] : null;
+  return figma.variables.getLocalVariables()
+    .find(v => v.name === `${collection}/${name}`) || null;
 }
 
 function resolveComponentToken(variantCombo, tokenKey) {
-  // Resolve token reference from DESIGN.md component entry
-  // Returns the Figma variable if one matches, else null
+  // Resolve {colors.token} or {rounded.token} references from DESIGN.md
   const tokenRef = componentTokens[variantCombo.variant]?.[tokenKey];
   if (!tokenRef) return null;
-  const varName = tokenRef.replace('{colors.','color/').replace('}','')
-    .replace('{rounded.','radius/').replace('}','');
+  const varName = tokenRef
+    .replace('{colors.', 'color/')
+    .replace('{rounded.', 'radius/')
+    .replace('}', '');
   return figma.variables.getLocalVariables().find(v => v.name === varName) || null;
 }
 ```
