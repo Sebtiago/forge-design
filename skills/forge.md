@@ -86,9 +86,10 @@ Ask these four questions ONE AT A TIME. Print `◇` before each. Wait for the an
 
    1) From a Figma file     — extract tokens + components
    2) From scratch          — guided token setup + scaffold
-   3) Add components        — extend an existing kiro-output/
+   3) Add components        — extend an existing forge-output/
+   4) Push to Figma         — publish existing forge-output/ as Figma library
 ```
-Store as `MODE` (figma / scratch / extend).
+Store as `MODE` (figma / scratch / extend / push).
 
 **Question 2 — Stack:**
 ```
@@ -398,6 +399,462 @@ Print:
 ```
 
 Proceed to "Shared: Generate Components".
+
+---
+
+## Flow C — Push to Figma
+
+Execute this flow when `MODE` is "push".
+
+This flow reads an existing `forge-output/` directory and publishes it as a professional Figma library file: variable collections for all tokens, and Figma components with variants for every atom, molecule, and organism. It is the inverse of Flow A.
+
+**Prerequisite:** Load the `figma-use` skill mentally before every `use_figma` call in this flow. Never parallelize `use_figma` calls — each must complete before the next.
+
+---
+
+### C1 — Verify Source & Figma Connection
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  Flow C · Push to Figma                 │
+└─────────────────────────────────────────┘
+```
+
+**Locate source directory:**
+```
+◇  Path to your forge-output/ directory?
+   (press Enter for default: ./forge-output)
+```
+Store as `SOURCE_DIR`. Verify these files exist:
+- `[SOURCE_DIR]/tokens/colors.json`
+- `[SOURCE_DIR]/tokens/typography.json`
+- `[SOURCE_DIR]/tokens/tokens.css`
+- `[SOURCE_DIR]/web/data.json`
+
+If any are missing, print:
+```
+✖  Incomplete forge-output/ — missing [file]
+   Run /forge (option 1 or 2) first to generate a complete output.
+```
+Stop.
+
+**Verify Figma MCP** — attempt `mcp__plugin_figma_figma__whoami`. If unavailable, print install guide (same as A1) and stop.
+
+Print:
+```
+✔  Source verified  →  [SOURCE_DIR]
+✔  Figma connected  →  [user name / org]
+```
+
+---
+
+### C2 — Create Figma File
+
+```
+◇  Create a new Figma file or push to an existing one?
+
+   1) New file     — Forge creates a fresh library file
+   2) Existing     — paste a Figma URL to update
+```
+
+**If new file:**
+Call `mcp__plugin_figma_figma__create_new_file` with:
+- `editorType`: "design"
+- `fileName`: "[PROJECT_NAME] — Design System"
+
+Store returned file key as `FIGMA_FILE_KEY`.
+
+**If existing:**
+```
+◇  Figma file URL?
+```
+Extract file key with `/figma\.com\/(?:file|design)\/([a-zA-Z0-9_-]+)/`. Store as `FIGMA_FILE_KEY`.
+
+Print:
+```
+✔  Figma file ready
+   ▸ [file name]
+   ▸ https://figma.com/design/[FIGMA_FILE_KEY]
+```
+
+---
+
+### C3 — Build Variable Collections (Tokens → Figma Variables)
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  C3 · Variables                         │
+└─────────────────────────────────────────┘
+  ↻  Creating variable collections...
+```
+
+**Variables must be created before components. Never skip this step.**
+
+Read `[SOURCE_DIR]/tokens/colors.json`, `typography.json`, `spacing.json`, `effects.json`.
+
+Create **4 variable collections** via `use_figma`, one at a time:
+
+#### Collection 1 — Colors
+
+```javascript
+// Create collection with Light and Dark modes
+const collection = figma.variables.createVariableCollection('Colors');
+const lightMode = collection.defaultModeId; // rename to 'Light'
+const darkMode = collection.addMode('Dark');
+collection.renameMode(lightMode, 'Light');
+
+// For each color token:
+const v = figma.variables.createVariable('color/[token-name]', collection, 'COLOR');
+v.setValueForMode(lightMode, { r, g, b, a }); // parsed from hex/rgba
+v.setValueForMode(darkMode, { r, g, b, a });  // same value unless dark variant exists
+v.scopes = ['ALL_FILLS', 'STROKE_COLOR', 'EFFECT_COLOR'];
+v.codeSyntax = { WEB: 'var(--color-[token-name])' };
+return { collectionId: collection.id, variableIds: [...] };
+```
+
+Parse hex to 0–1 RGB: `r = parseInt(hex.slice(1,3),16)/255`.
+For 8-digit hex (#RRGGBBAA): alpha = `parseInt(hex.slice(7,9),16)/255`.
+For rgba(): parse each channel directly.
+
+#### Collection 2 — Typography
+
+```javascript
+const collection = figma.variables.createVariableCollection('Typography');
+const mode = collection.defaultModeId;
+collection.renameMode(mode, 'Default');
+
+// Font size variables
+const sizeVar = figma.variables.createVariable('font-size/[scale-name]', collection, 'FLOAT');
+sizeVar.setValueForMode(mode, [numeric px value]);
+sizeVar.scopes = ['FONT_SIZE'];
+sizeVar.codeSyntax = { WEB: 'var(--font-size-[scale-name])' };
+
+// Font weight variables
+const weightVar = figma.variables.createVariable('font-weight/[scale-name]', collection, 'FLOAT');
+weightVar.setValueForMode(mode, [numeric weight]);
+weightVar.scopes = ['FONT_WEIGHT'];
+weightVar.codeSyntax = { WEB: 'var(--font-weight-[scale-name])' };
+```
+
+#### Collection 3 — Spacing
+
+```javascript
+const collection = figma.variables.createVariableCollection('Spacing');
+const mode = collection.defaultModeId;
+collection.renameMode(mode, 'Default');
+
+const v = figma.variables.createVariable('spacing/[name]', collection, 'FLOAT');
+v.setValueForMode(mode, [numeric px value — convert rem: multiply by 16]);
+v.scopes = ['WIDTH_HEIGHT', 'GAP', 'HORIZONTAL_PADDING', 'VERTICAL_PADDING'];
+v.codeSyntax = { WEB: 'var(--spacing-[name])' };
+```
+
+#### Collection 4 — Radius & Effects
+
+```javascript
+// Radius
+const collection = figma.variables.createVariableCollection('Radius');
+const v = figma.variables.createVariable('radius/[name]', collection, 'FLOAT');
+v.setValueForMode(mode, [numeric px value]);
+v.scopes = ['CORNER_RADIUS'];
+v.codeSyntax = { WEB: 'var(--radius-[name])' };
+```
+
+After all 4 collections, print:
+```
+  ████████████████  100%
+
+  ── Variable collections ────────────────
+  ✔  Colors       [N] variables  (Light + Dark modes)
+  ✔  Typography   [N] variables
+  ✔  Spacing      [N] variables
+  ✔  Radius       [N] variables
+  ── Total: [N] variables ────────────────
+```
+
+**Checkpoint — wait for user before continuing:**
+```
+◇  Variables created in Figma. Check them now if you want.
+   Press Enter to continue to component generation.
+```
+
+---
+
+### C4 — Set Up Page Structure
+
+Create one page per Atomic Design level plus a cover page, via `use_figma`:
+
+```javascript
+// Rename default page
+const page0 = figma.root.children[0];
+await figma.setCurrentPageAsync(page0);
+page0.name = 'Cover';
+
+// Add pages
+const atomsPage = figma.createPage(); atomsPage.name = '⬡ Atoms';
+const moleculesPage = figma.createPage(); moleculesPage.name = '⬡ Molecules';
+const organismsPage = figma.createPage(); organismsPage.name = '⬡ Organisms';
+const tokensPage = figma.createPage(); tokensPage.name = '▣ Tokens';
+
+return {
+  coverPageId: page0.id,
+  atomsPageId: atomsPage.id,
+  moleculesPageId: moleculesPage.id,
+  organismsPageId: organismsPage.id,
+  tokensPageId: tokensPage.id
+};
+```
+
+Store all page IDs. Print `✔  Pages created`.
+
+---
+
+### C5 — Build Token Reference Page
+
+Switch to the Tokens page and render a visual token map: color swatches, type specimens, spacing bars.
+
+```javascript
+await figma.setCurrentPageAsync(figma.root.findOne(n => n.id === tokensPageId));
+
+// ── Color swatches ──────────────────────────────────────────
+// For each color token: create a frame (48×48), fill with variable binding
+let x = 40;
+for (const [name, hex] of Object.entries(colors)) {
+  const swatch = figma.createFrame();
+  swatch.name = name;
+  swatch.resize(80, 80);
+  swatch.x = x; swatch.y = 40;
+  swatch.cornerRadius = 8;
+  // Bind fill to the color variable
+  const colorVar = figma.variables.getLocalVariables().find(v => v.name === `color/${name}`);
+  if (colorVar) {
+    const fill = figma.util.solidPaint('#000000');
+    swatch.fills = [figma.variables.setBoundVariableForPaint(fill, 'color', colorVar)];
+  } else {
+    const {r,g,b} = hexToRgb(hex);
+    swatch.fills = [{ type: 'SOLID', color: {r,g,b} }];
+  }
+  // Label
+  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+  const label = figma.createText();
+  label.fontName = { family: 'Inter', style: 'Regular' };
+  label.fontSize = 10; label.characters = name;
+  label.x = x; label.y = 128;
+  x += 96;
+}
+
+// ── Type specimens ───────────────────────────────────────────
+// For each typography scale: render sample text at actual size
+let ty = 240;
+for (const [scale, props] of Object.entries(typography)) {
+  await figma.loadFontAsync({ family: props.family, style: props.weight >= 600 ? 'SemiBold' : props.weight >= 500 ? 'Medium' : 'Regular' });
+  const t = figma.createText();
+  t.fontName = { family: props.family, style: props.weight >= 600 ? 'SemiBold' : props.weight >= 500 ? 'Medium' : 'Regular' };
+  t.fontSize = parseFloat(props.size);
+  t.characters = `${scale} — The quick brown fox`;
+  t.x = 40; t.y = ty;
+  ty += parseFloat(props.size) * 1.6 + 8;
+}
+
+return { status: 'tokens-page-done' };
+```
+
+Print `✔  Token reference page built`.
+
+---
+
+### C6 — Generate Figma Components
+
+Read `[SOURCE_DIR]/web/data.json` to get the component list. Process atoms → molecules → organisms in order. One component at a time — never parallelize.
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  C6 · Components                        │
+└─────────────────────────────────────────┘
+```
+
+**For each component**, execute this sequence:
+
+**C6a — Switch to correct page:**
+```javascript
+const targetPageId = category === 'atom' ? atomsPageId
+  : category === 'molecule' ? moleculesPageId : organismsPageId;
+await figma.setCurrentPageAsync(figma.root.findOne(n => n.id === targetPageId));
+```
+
+**C6b — Create component set with variants:**
+
+Read the component's props from `data.json` to identify variant dimensions (e.g. `variant`, `size`, `state`).
+
+```javascript
+// Create one component per variant combination
+const components = [];
+for (const variantCombo of allVariantCombinations) {
+  const comp = figma.createComponent();
+  comp.name = Object.entries(variantCombo).map(([k,v]) => `${k}=${v}`).join(', ');
+  comp.resize(componentWidth, componentHeight);
+
+  // Auto-layout
+  comp.layoutMode = 'HORIZONTAL';
+  comp.primaryAxisAlignItems = 'CENTER';
+  comp.counterAxisAlignItems = 'CENTER';
+  comp.paddingLeft = comp.paddingRight = tokenValue('spacing', 'button-padding-x') || 12;
+  comp.paddingTop = comp.paddingBottom = tokenValue('spacing', 'button-padding-y') || 4;
+  comp.itemSpacing = tokenValue('spacing', 'gap') || 8;
+
+  // Background fill — bind to color variable
+  const bgVar = resolveComponentToken(variantCombo, 'backgroundColor');
+  if (bgVar) {
+    const fill = figma.util.solidPaint('#000000');
+    comp.fills = [figma.variables.setBoundVariableForPaint(fill, 'color', bgVar)];
+  }
+
+  // Corner radius — bind to radius variable
+  const radiusVar = resolveComponentToken(variantCombo, 'rounded');
+  if (radiusVar) {
+    comp.setBoundVariable('topLeftRadius', radiusVar);
+    comp.setBoundVariable('topRightRadius', radiusVar);
+    comp.setBoundVariable('bottomLeftRadius', radiusVar);
+    comp.setBoundVariable('bottomRightRadius', radiusVar);
+  }
+
+  // Label text node
+  await figma.loadFontAsync({ family: 'Inter', style: 'Medium' });
+  const label = figma.createText();
+  label.fontName = { family: 'Inter', style: 'Medium' };
+  label.fontSize = 13;
+  label.characters = componentName;
+  label.fills = [{ type: 'SOLID', color: resolveTextColor(variantCombo) }];
+  comp.appendChild(label);
+
+  components.push(comp);
+}
+
+// Combine into ComponentSet
+const set = figma.combineAsVariants(components, figma.currentPage);
+set.name = componentName;
+
+// Position on page — lay out in a grid (4 per row, 200px spacing)
+set.x = (componentIndex % 4) * 220 + 40;
+set.y = Math.floor(componentIndex / 4) * 160 + 40;
+
+return { componentSetId: set.id, nodeIds: components.map(c => c.id) };
+```
+
+**Helper functions to define at the top of each C6 call:**
+
+```javascript
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return {
+    r: parseInt(h.slice(0,2),16)/255,
+    g: parseInt(h.slice(2,4),16)/255,
+    b: parseInt(h.slice(4,6),16)/255
+  };
+}
+
+function tokenValue(collection, name) {
+  const v = figma.variables.getLocalVariables()
+    .find(v => v.name === `${collection}/${name}`);
+  return v ? Object.values(v.valuesByMode)[0] : null;
+}
+
+function resolveComponentToken(variantCombo, tokenKey) {
+  // Resolve token reference from DESIGN.md component entry
+  // Returns the Figma variable if one matches, else null
+  const tokenRef = componentTokens[variantCombo.variant]?.[tokenKey];
+  if (!tokenRef) return null;
+  const varName = tokenRef.replace('{colors.','color/').replace('}','')
+    .replace('{rounded.','radius/').replace('}','');
+  return figma.variables.getLocalVariables().find(v => v.name === varName) || null;
+}
+```
+
+After each component set is created:
+```
+  ✔  [ComponentName]  [N] variants  →  [page name]
+```
+
+**Checkpoint after all atoms — before molecules:**
+```
+◇  [N] atoms published. Check Figma before continuing to molecules.
+   Press Enter to continue.
+```
+
+**Checkpoint after molecules — before organisms:**
+```
+◇  [N] molecules published. Press Enter to continue to organisms.
+```
+
+---
+
+### C7 — Publish as Library
+
+After all components are created, prompt to publish:
+
+```
+◇  Publish as shared Figma library so your team can use components?
+   (requires Editor access on the file)  (y/n)
+```
+
+If yes, call `use_figma`:
+```javascript
+// Mark all component sets as publishable
+const allSets = figma.root.findAllWithCriteria({ types: ['COMPONENT_SET'] });
+for (const set of allSets) {
+  set.description = `Forge — ${set.name}`;
+}
+// Note: actual publishing requires Figma's Publish API or manual action
+figma.notify('Ready to publish — use File > Publish Library in Figma');
+return { setsMarked: allSets.length };
+```
+
+Then print:
+```
+✔  [N] component sets marked for publishing
+   ▸ Open Figma → File menu → Publish styles and variables
+   ▸ Your team can then install this library in any Figma file
+```
+
+---
+
+### C8 — Done (Flow C)
+
+Print:
+```
+╔════════════════════════════════════════════════╗
+║                                                ║
+║  ███████╗ ██████╗ ██████╗   ██████╗ ███████╗   ║
+║  ██╔════╝██╔═══██╗██╔══██╗ ██╔════╝ ██╔════╝   ║
+║  █████╗  ██║   ██║██████╔╝ ██║  ███╗█████╗     ║
+║  ██╔══╝  ██║   ██║██╔══██╗ ██║   ██║██╔══╝     ║
+║  ██║     ╚██████╔╝██║  ██║ ╚██████╔╝███████╗   ║
+║  ╚═╝      ╚═════╝ ╚═╝  ╚═╝  ╚═════╝ ╚══════╝   ║
+║                                                ║
+║  ████████████████  Push complete               ║
+║                                                ║
+╠════════════════════════════════════════════════╣
+║  [PROJECT_NAME]  →  Figma                      ║
+║                                                ║
+║  ── Published ─────────────────────────────    ║
+║  ✔  [N] variable collections                   ║
+║  ✔  [Na] atoms                                 ║
+║  ✔  [Nm] molecules                             ║
+║  ✔  [No] organisms                             ║
+║                                                ║
+║  ── Next steps ────────────────────────────    ║
+║  ▸  Open Figma → File → Publish Library        ║
+║  ▸  Designers install library in their files   ║
+║  ▸  Code Connect: run /forge → option 1        ║
+║     to re-link Figma components to code        ║
+║                                                ║
+║  https://figma.com/design/[FIGMA_FILE_KEY]     ║
+║                                                ║
+╚════════════════════════════════════════════════╝
+```
 
 ---
 
