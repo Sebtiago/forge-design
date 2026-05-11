@@ -8,13 +8,13 @@
 ║  ██║     ╚██████╔╝██║  ██║ ╚██████╔╝███████╗   ║
 ║  ╚═╝      ╚═════╝ ╚═╝  ╚═╝  ╚═════╝ ╚══════╝   ║
 ║                                                ║
-║  Design System Builder  ·  v0.2.0              ║
+║  Design System Builder  ·  v0.3.0              ║
 ║  Atomic Design + Figma Tokenization            ║
 ║                                                ║
 ╚════════════════════════════════════════════════╝
 ```
 
-**Forge** is a [Claude Code](https://claude.ai/code) skill that turns a Figma file — or a blank canvas — into a production-ready design system in minutes. It extracts design tokens, generates typed components in your team's stack, and builds a visual docs site with real component renders. No boilerplate. No config files. Just a conversation.
+**Forge** is a [Claude Code](https://claude.ai/code) skill that turns a Figma file — or a blank canvas — into a production-ready design system in minutes. It extracts design tokens, generates typed components in your team's stack, builds a visual docs site with real component renders, and can publish the whole system back to Figma as a shared library. No boilerplate. No config files. Just a conversation.
 
 Built for designers and developers who want to ship together.
 
@@ -28,6 +28,7 @@ Built for designers and developers who want to ship together.
 │                                                     │
 │  ▸ Export your Figma tokens automatically           │
 │  ▸ See your components rendered in a docs site      │
+│  ▸ Push your code system back to Figma as library   │
 │  ▸ No code knowledge required to run Forge          │
 │  ▸ Designer view hides all the code                 │
 └─────────────────────────────────────────────────────┘
@@ -36,8 +37,10 @@ Built for designers and developers who want to ship together.
 │  For Developers                                     │
 │                                                     │
 │  ▸ Get typed React / Vue / Svelte components        │
+│  ▸ WCAG 2.2 AA accessibility built in               │
 │  ▸ Props tables, usage examples, a11y notes         │
 │  ▸ Barrel export ready to drop into any project     │
+│  ▸ Auto-generates CLAUDE.md / AGENTS.md for AI      │
 │  ▸ Developer view shows code + full props table     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -56,13 +59,14 @@ Forge is a skill for [Claude Code](https://claude.ai/code). You run `/forge` in 
   ○  Spacing      pending
 ```
 
-**Three modes:**
+**Four modes:**
 
 | Mode | When to use |
 |------|-------------|
 | `From a Figma file` | You have an existing design — Forge extracts everything |
 | `From scratch` | You answer a few questions and Forge builds your token set |
 | `Add components` | Extend an existing `forge-output/` with new components |
+| `Push to Figma` | Publish an existing `forge-output/` as a Figma library |
 
 ---
 
@@ -73,6 +77,7 @@ Every run produces a `forge-output/` directory:
 ```
 forge-output/
 ├── DESIGN.md                 ← AI-readable design spec (Google DESIGN.md)
+├── CLAUDE.md                 ← agent rules for Claude Code (auto-generated)
 │
 ├── tokens/
 │   ├── colors.json
@@ -84,7 +89,7 @@ forge-output/
 ├── atoms/                    ← Button, Input, Badge, Icon…
 │   └── button/
 │       ├── button.tsx
-│       └── button.md         ← props table + usage + a11y
+│       └── button.md         ← props table + usage + a11y + testing checklist
 │
 ├── molecules/                ← Card, SearchBar, FormField…
 ├── organisms/                ← Navbar, PricingCard, HeroSection…
@@ -96,6 +101,8 @@ forge-output/
     ├── styles.css
     ├── script.js
     ├── data.json
+    ├── assets/               ← images + icons extracted from Figma
+    │   └── icons/
     └── previews/
         └── button.html       ← real React render via CDN, no build step
 ```
@@ -123,7 +130,7 @@ curl -o ~/.claude/skills/forge.md \
 
 ### 3. (Optional) Connect Figma MCP
 
-To use **From Figma** mode, add the [Figma MCP server](https://github.com/GLips/Figma-Context-MCP) to your Claude Code settings:
+Required for **From Figma** and **Push to Figma** modes. Add the [Figma MCP server](https://github.com/GLips/Figma-Context-MCP) to your Claude Code settings:
 
 ```json
 {
@@ -164,6 +171,80 @@ Forge opens with the menu, asks 4 questions, and builds your design system.
 
 ---
 
+## Push to Figma
+
+Forge can publish an existing `forge-output/` back to Figma as a professional shared library — the inverse of extracting from Figma.
+
+```
+/forge  →  4) Push to Figma
+```
+
+What gets created in Figma:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Variable collections                               │
+│                                                     │
+│  ▸ Primitives   raw hex values (hidden from pickers)│
+│  ▸ Colors       semantic aliases, Light + Dark mode │
+│  ▸ Typography   font-size, weight, line-height      │
+│  ▸ Spacing      all spacing steps                   │
+│  ▸ Radius       corner radius tokens                │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Pages                                              │
+│                                                     │
+│  ▸ Cover                                            │
+│  ▸ Atoms       one ComponentSet per atom            │
+│  ▸ Molecules   one ComponentSet per molecule        │
+│  ▸ Organisms   one ComponentSet per organism        │
+│  ▸ Tokens      color swatches + type specimen       │
+└─────────────────────────────────────────────────────┘
+```
+
+Each `ComponentSet` includes Figma **component properties** — designers get interactive controls in the right panel: `label` (TEXT), `disabled` (BOOLEAN), `icon` (INSTANCE_SWAP), all fills and radii bound to variable collections.
+
+---
+
+## Component quality standards
+
+Every generated component meets these standards by default:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Accessibility — WCAG 2.2 AA                        │
+│                                                     │
+│  ▸ Semantic HTML (button, input, a — not div)       │
+│  ▸ Correct ARIA role, name, and state attributes    │
+│  ▸ Full keyboard support per WAI-ARIA APG patterns  │
+│  ▸ Focus ring on focus-visible                      │
+│  ▸ 4.5:1 contrast minimum on all text               │
+│  ▸ prefers-reduced-motion respected                 │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  TypeScript — Radix / MUI conventions               │
+│                                                     │
+│  ▸ Named props interface exported                   │
+│  ▸ Extends native HTML element attributes           │
+│  ▸ React.forwardRef on all button / input wrappers  │
+│  ▸ Union types for variants, boolean for toggles    │
+│  ▸ className passthrough + ...rest spread           │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Visual                                             │
+│                                                     │
+│  ▸ Zero hardcoded hex values — CSS custom props     │
+│  ▸ All states: hover, focus, disabled, loading,     │
+│    error, success                                   │
+│  ▸ Dark mode via token swap — no extra code         │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Docs site
 
 The generated `web/` folder is a zero-dependency docs site. Open it with any static server:
@@ -179,6 +260,20 @@ python3 -m http.server 3000
 **Developer view** — same layout plus props tables, TypeScript usage examples, and accessibility notes.
 
 Toggle between views in the top-right corner.
+
+---
+
+## AI agent rules (auto-generated)
+
+At the end of every run, Forge asks which AI coding tool your team uses and writes a rules file:
+
+| Tool | File generated |
+|------|---------------|
+| Claude Code | `CLAUDE.md` |
+| Codex CLI | `AGENTS.md` |
+| Cursor | `.cursor/rules/figma-design-system.mdc` |
+
+The file tells any AI agent where components live, how to use tokens, the styling approach, and when to reference `DESIGN.md`. Drop it in your project root and any agent picks it up automatically.
 
 ---
 
@@ -239,13 +334,23 @@ Every component gets a `.md` file:
 Circular glassmorphism button with an icon.
 Use in toolbars, app launchers, or icon slots.
 
-| Prop     | Type                        | Default   |
-|----------|-----------------------------|-----------|
-| mode     | 'light' \| 'dark'           | 'light'   |
+| Prop     | Type                         | Default   |
+|----------|------------------------------|-----------|
+| mode     | 'light' \| 'dark'            | 'light'   |
 | style    | 'glass' \| 'outline' \|'flat'| 'glass'   |
-| size     | 'sm'\|'md'\|'lg'\|'xl'      | 'md'      |
-| icon     | React.ReactNode             | Figma logo|
-| disabled | boolean                     | false     |
+| size     | 'sm'\|'md'\|'lg'\|'xl'       | 'md'      |
+| icon     | React.ReactNode              | Figma logo|
+| disabled | boolean                      | false     |
+
+## Accessibility
+- Uses semantic <button> element
+- Keyboard: Enter and Space trigger action
+- aria-disabled set when disabled prop is true
+
+## Testing
+- [ ] Keyboard: Tab reaches element, Enter/Space activates it
+- [ ] ref forwarding: ref.current points to root DOM element
+- [ ] Dark mode: all text meets 4.5:1 contrast
 ```
 
 ---
