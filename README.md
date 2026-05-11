@@ -72,6 +72,8 @@ Every run produces a `forge-output/` directory:
 
 ```
 forge-output/
+├── DESIGN.md                 ← AI-readable design spec (Google DESIGN.md)
+│
 ├── tokens/
 │   ├── colors.json
 │   ├── typography.json       ← all type scales (Inter + Mono)
@@ -246,7 +248,6 @@ Use in toolbars, app launchers, or icon slots.
 | disabled | boolean                     | false     |
 ```
 
----
 ---
 
 ## DESIGN.md — AI-readable design specification
