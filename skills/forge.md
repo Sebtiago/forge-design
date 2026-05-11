@@ -800,6 +800,94 @@ Print `✔  Docs site ready`
 
 ---
 
+## Shared: Generate Project Rules
+
+After the docs site is built, generate AI coding agent rules for the project.
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  Generating Project Rules               │
+└─────────────────────────────────────────┘
+  ↻  Writing agent rules for your stack...
+```
+
+Ask one question:
+```
+◇  Which AI coding tool does your team use?
+
+   1) Claude Code   → CLAUDE.md
+   2) Codex CLI     → AGENTS.md
+   3) Cursor        → .cursor/rules/figma-design-system.mdc
+   4) All three     → generate all
+   5) Skip          → no rules file
+```
+Store as `RULES_TARGET`.
+
+If `RULES_TARGET` is not "skip":
+
+Call `mcp__plugin_figma_figma__create_design_system_rules` if Figma MCP is connected and `MODE` is "figma". Pass the file key and any component metadata collected during extraction.
+
+If Figma MCP is unavailable or `MODE` is "scratch", generate the rules file manually from the token and component data already collected.
+
+**Rules file content to generate (manually if needed):**
+
+```markdown
+# [PROJECT_NAME] — Design System Rules
+
+## Stack
+[STACK] — components in [OUTPUT_DIR]/
+
+## Component discovery
+- Import from [OUTPUT_DIR]/index.ts — barrel export for all components
+- Atoms in [OUTPUT_DIR]/atoms/   — single-element, no composition
+- Molecules in [OUTPUT_DIR]/molecules/   — 2–3 atoms combined
+- Organisms in [OUTPUT_DIR]/organisms/  — page-section level
+
+## Design tokens
+- All tokens in [OUTPUT_DIR]/tokens/tokens.css as CSS custom properties
+- Never hardcode hex values or px sizes — always use var(--token-name)
+- Color tokens: --color-[name]
+- Typography tokens: --font-size-[name], --font-weight-[name]
+- Spacing tokens: --spacing-[name]
+- Radius tokens: --radius-[name]
+
+## Styling approach
+[If react-tailwind]:   Tailwind classes only — no inline styles, no CSS modules
+[If react-cssmodules]: CSS Modules — one .module.css per component
+[If vue]:              <style scoped> with token variables
+[If svelte]:           <style> block with token variables
+
+## Component conventions
+- Props interface exported alongside component
+- className prop always accepted and merged
+- All interactive elements: keyboard support + ARIA attributes
+- forwardRef on all input/button/link wrappers
+- No hardcoded colors, no inline styles
+
+## When implementing new components
+1. Check [OUTPUT_DIR]/index.ts first — component may already exist
+2. Read the component's .md file for props, variants, and accessibility notes
+3. Use tokens from tokens.css — never introduce new color values
+4. Follow the same file structure: [category]/[slug]/[slug].tsx + [slug].md
+
+## Design source
+[If MODE is figma]: Figma file — use Figma MCP to read latest component state
+[If MODE is scratch]: Tokens generated from scratch — DESIGN.md is the source of truth
+- DESIGN.md at [OUTPUT_DIR]/DESIGN.md — AI-readable full design spec
+```
+
+Write the file(s) to `[OUTPUT_DIR]/` (not inside web/ or tokens/).
+
+Print:
+```
+✔  Project rules written
+   ▸ [filename]  →  [OUTPUT_DIR]/[filename]
+   ▸ Drop this file in your project root for Claude Code / Codex / Cursor to pick up
+```
+
+---
+
 ## Shared: Done Banner
 
 ```
@@ -838,6 +926,8 @@ Print the final banner:
 ║  ── Output ────────────────────────────────    ║
 ║  ▸  [OUTPUT_DIR]/                              ║
 ║  ▸  [OUTPUT_DIR]/web/index.html                ║
+║  ▸  [OUTPUT_DIR]/DESIGN.md                     ║
+║  ▸  [OUTPUT_DIR]/[RULES_FILE]                  ║
 ║                                                ║
 ║  Designer view  →  renders in browser          ║
 ║  Developer view →  toggle top-right            ║
