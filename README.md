@@ -247,6 +247,64 @@ Use in toolbars, app launchers, or icon slots.
 ```
 
 ---
+---
+
+## DESIGN.md — AI-readable design specification
+
+Forge generates a `DESIGN.md` file in your output following the [Google DESIGN.md spec](https://github.com/google-labs-code/design.md). This makes your design system readable by any AI agent — not just Forge.
+
+```
+forge-output/
+└── DESIGN.md    ← drop this anywhere in your repo
+```
+
+`DESIGN.md` has two parts:
+
+**YAML frontmatter** — machine-readable tokens:
+```yaml
+---
+version: alpha
+name: My Design System
+colors:
+  primary: "#2670E9"
+  surface: "#FFFFFF99"
+typography:
+  headline-md:
+    fontFamily: Inter
+    fontSize: 20px
+    fontWeight: 500
+    lineHeight: 30px
+rounded:
+  md: 8px
+  full: 9999px
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.md}"
+---
+```
+
+**Markdown sections** — human-readable rationale:
+
+```markdown
+## Overview
+A glassmorphism system built for productivity tools…
+
+## Colors
+- primary (#2670E9): electric blue, selection and focus states only
+- surface (#FFFFFF99): white 60% opacity, all glass fills
+
+## Do's and Don'ts
+- Do use glass style only against blurred or image backgrounds
+- Don't introduce secondary accent colors
+```
+
+Any AI agent that reads your repo gets the full design context — colors, type scales, spacing, component tokens, and the reasoning behind each decision.
+
+See [`examples/react-tailwind/DESIGN.md`](examples/react-tailwind/DESIGN.md) for a complete example.
+
+---
 
 ## Repository structure
 
@@ -257,6 +315,7 @@ forge-design/
 │
 ├── examples/
 │   └── react-tailwind/
+│       ├── DESIGN.md         ← example AI-readable design spec
 │       └── components/       ← example generated components
 │
 ├── docs-site/                ← docs site template
@@ -299,4 +358,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 MIT — see [LICENSE](LICENSE).
 
-Built with [Claude Code](https://claude.ai/code) · Figma tokenization via [Figma MCP](https://github.com/GLips/Figma-Context-MCP)
+Built with [Claude Code](https://claude.ai/code) · Figma tokenization via [Figma MCP](https://github.com/GLips/Figma-Context-MCP) · DESIGN.md spec by [Google Labs](https://github.com/google-labs-code/design.md)

@@ -525,6 +525,123 @@ Print:
 
 ---
 
+## Shared: Generate DESIGN.md
+
+After components are generated and before building the docs site, write `[OUTPUT_DIR]/DESIGN.md` following the [Google DESIGN.md spec](https://github.com/google-labs-code/design.md).
+
+Print:
+```
+┌─────────────────────────────────────────┐
+│  Generating DESIGN.md                   │
+└─────────────────────────────────────────┘
+  ↻  Writing AI-readable design specification...
+```
+
+`DESIGN.md` is a self-contained, plain-text representation of the design system for AI agents. It has two parts:
+- **YAML frontmatter** — machine-readable design tokens
+- **Markdown body** — human-readable rationale for each section
+
+### Structure to generate
+
+```
+[OUTPUT_DIR]/DESIGN.md
+```
+
+The file must follow this exact section order (omit sections with no data):
+1. Overview
+2. Colors
+3. Typography
+4. Layout
+5. Elevation & Depth
+6. Shapes
+7. Components
+8. Do's and Don'ts
+
+### YAML frontmatter template
+
+Map Forge tokens → DESIGN.md schema:
+
+```yaml
+---
+version: alpha
+name: [PROJECT_NAME]
+description: [one sentence describing the visual identity — generate from tokens and Figma description]
+colors:
+  # Map every color token. Use semantic names where possible:
+  # primary, secondary, tertiary, neutral, surface, on-surface, error
+  # If Figma token names map to semantics, use those. Otherwise keep original names.
+  [token-name]: "[hex or rgba value]"
+typography:
+  # Map every type scale. Use Google's naming convention:
+  # display-lg, headline-lg/md/sm, body-lg/md/sm, label-lg/md/sm
+  # Map Forge scale names → closest Google equivalent
+  [token-name]:
+    fontFamily: [family]
+    fontSize: [size]
+    fontWeight: [weight as number]
+    lineHeight: [lineHeight]
+    letterSpacing: [letterSpacing — omit if 0]
+rounded:
+  # Map border-radius tokens if present, else generate from Figma corner radius
+  sm: [value]
+  md: [value]
+  lg: [value]
+  full: 9999px
+spacing:
+  # Map spacing tokens
+  [scale-name]: [value]
+components:
+  # One entry per atom/molecule with their key visual tokens
+  # Use token references with {path.to.token} syntax
+  [component-name]:
+    backgroundColor: "[value or {colors.token}]"
+    textColor: "[value or {colors.token}]"
+    rounded: "{rounded.md}"
+    padding: "[value]"
+  # Hover/active variants as separate entries: [name]-hover, [name]-active
+---
+```
+
+### Markdown body sections
+
+After the frontmatter, write prose for each section:
+
+**## Overview**
+Write 2–3 sentences describing the visual identity, brand personality, and emotional feel. Derive from: Figma file name, component names, token values (e.g. glassmorphism effects → "layered, translucent surfaces").
+
+**## Colors**
+List each color with a bullet. Include the hex, and a short description of its role.
+
+**## Typography**
+Describe the font strategy: families used, scale hierarchy, personality (e.g. "tight tracking on headings signals confidence"). List the scale groups.
+
+**## Layout**
+Describe spacing grid (4pt/8pt), container strategy, and any layout tokens.
+
+**## Elevation & Depth**
+If blur/shadow effects exist in tokens: describe glassmorphism or elevation strategy. If flat: say so.
+
+**## Shapes**
+Describe corner radius philosophy (sharp/rounded/pill) from `rounded` tokens.
+
+**## Components**
+Brief description of each atom/molecule: what it is, key visual characteristics, state variants.
+
+**## Do's and Don'ts**
+Generate 4–6 practical rules derived from the token set and component patterns. Examples:
+- "Do use glass variants on dark backgrounds only"
+- "Don't mix flat and glass styles in the same surface"
+- "Do maintain minimum 4.5:1 contrast ratio on text"
+
+After writing the file, print:
+```
+✔  DESIGN.md  →  [OUTPUT_DIR]/DESIGN.md
+   ▸ AI agents can now read your design system
+   ▸ Compatible with Google DESIGN.md spec (alpha)
+```
+
+---
+
 ## Preview HTML Templates
 
 ### React + Tailwind
