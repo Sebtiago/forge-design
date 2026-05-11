@@ -1,0 +1,21 @@
+{
+  "name": "forge-design",
+  "version": "0.3.0",
+  "description": "Install the Forge design system builder skill for Claude Code",
+  "bin": {
+    "forge-design": "./bin/forge-design.js"
+  },
+  "files": [
+    "bin/",
+    "skills/"
+  ],
+  "scripts": {
+    "prepare": "node scripts/copy-skill.js"
+  },
+  "keywords": ["claude-code", "design-system", "figma", "skill"],
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
