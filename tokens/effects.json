@@ -1,0 +1,14 @@
+{
+  "$schema": "https://forge-design.dev/token-schema/1.0",
+  "group": "effects",
+  "tokens": {
+    "blur/20": {
+      "css": "backdrop-filter: blur(20px)",
+      "description": "Standard glass blur"
+    },
+    "shadow-blur/sm": {
+      "css": "backdrop-filter: blur(20px); filter: drop-shadow(0 10px 10px rgba(0,0,0,0.10)) drop-shadow(0 4px 4px rgba(0,0,0,0.05)) drop-shadow(0 1px 0 rgba(0,0,0,0.05))",
+      "description": "Small elevation: glass + layered drop shadows"
+    }
+  }
+}

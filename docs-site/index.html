@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kiro — Design System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" />
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-brand">
+      <a class="header-logo" href="#" onclick="navigate('overview');return false;">Kiro</a>
+      <span class="header-project" id="project-name">Design System</span>
+    </div>
+    <div class="header-actions">
+      <span class="header-badge" id="framework-badge">—</span>
+      <div class="view-toggle" id="view-toggle" role="group" aria-label="View mode">
+        <button class="view-btn active" data-view="designer" onclick="setView('designer')">Designer</button>
+        <button class="view-btn" data-view="developer" onclick="setView('developer')">Developer</button>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">○</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Overview</div>
+        <button class="sidebar-item active" onclick="navigate('overview')" data-page="overview">Introduction</button>
+        <button class="sidebar-item" onclick="navigate('tokens')" data-page="tokens">
+          Design Tokens
+          <span class="sidebar-item-count" id="token-count">—</span>
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Components</div>
+        <div id="component-nav"></div>
+      </div>
+    </nav>
+
+    <main class="main" id="main">
+      <div id="page-content"></div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-tsx.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

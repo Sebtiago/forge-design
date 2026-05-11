@@ -1,0 +1,36 @@
+{
+  "$schema": "https://forge-design.dev/token-schema/1.0",
+  "group": "typography",
+  "fonts": {
+    "sans": "Inter",
+    "mono": "Roboto Mono"
+  },
+  "tokens": {
+    "headings/heading-1":          { "family": "Inter", "size": "60px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-3px",   "note": "Desktop H1" },
+    "headings/heading-2":          { "family": "Inter", "size": "50px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-2px",   "note": "Desktop H2" },
+    "headings/heading-3":          { "family": "Inter", "size": "40px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-1.6px", "note": "Desktop H3" },
+    "headings/heading-4":          { "family": "Inter", "size": "30px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-1.2px", "note": "Desktop H4" },
+    "headings/heading-5":          { "family": "Inter", "size": "24px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-0.96px","note": "Desktop H5" },
+    "headline/regular":            { "family": "Inter", "size": "20px", "weight": 400, "lineHeight": "30px", "letterSpacing": "0" },
+    "headline/medium":             { "family": "Inter", "size": "20px", "weight": 500, "lineHeight": "30px", "letterSpacing": "0" },
+    "body-large/regular":          { "family": "Inter", "size": "18px", "weight": 400, "lineHeight": "27px", "letterSpacing": "0" },
+    "body-large/medium":           { "family": "Inter", "size": "18px", "weight": 500, "lineHeight": "27px", "letterSpacing": "0" },
+    "body/regular":                { "family": "Inter", "size": "16px", "weight": 400, "lineHeight": "24px", "letterSpacing": "0" },
+    "body/medium":                 { "family": "Inter", "size": "16px", "weight": 500, "lineHeight": "24px", "letterSpacing": "0" },
+    "footnote/regular":            { "family": "Inter", "size": "14px", "weight": 400, "lineHeight": "20px", "letterSpacing": "0" },
+    "footnote/medium":             { "family": "Inter", "size": "14px", "weight": 500, "lineHeight": "20px", "letterSpacing": "0" },
+    "caption/regular":             { "family": "Inter", "size": "13px", "weight": 400, "lineHeight": "20px", "letterSpacing": "0" },
+    "caption/medium":              { "family": "Inter", "size": "13px", "weight": 500, "lineHeight": "20px", "letterSpacing": "0" },
+    "small/regular":               { "family": "Inter", "size": "12px", "weight": 400, "lineHeight": "18px", "letterSpacing": "0" },
+    "small/medium":                { "family": "Inter", "size": "12px", "weight": 500, "lineHeight": "18px", "letterSpacing": "0" },
+    "mobile-headings/heading-1":   { "family": "Inter", "size": "40px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-1.6px", "note": "Mobile H1" },
+    "mobile-headings/heading-2":   { "family": "Inter", "size": "30px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-1.2px", "note": "Mobile H2" },
+    "mobile-headings/heading-3":   { "family": "Inter", "size": "28px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-1.12px","note": "Mobile H3" },
+    "mobile-headings/heading-4":   { "family": "Inter", "size": "24px", "weight": 600, "lineHeight": "100%", "letterSpacing": "-0.96px","note": "Mobile H4" },
+    "body-large/mono":             { "family": "Roboto Mono", "size": "18px", "weight": 400, "lineHeight": "27px", "letterSpacing": "0" },
+    "body/mono":                   { "family": "Roboto Mono", "size": "16px", "weight": 400, "lineHeight": "24px", "letterSpacing": "0" },
+    "footnote/mono":               { "family": "Roboto Mono", "size": "14px", "weight": 400, "lineHeight": "20px", "letterSpacing": "0" },
+    "caption/mono":                { "family": "Roboto Mono", "size": "13px", "weight": 400, "lineHeight": "20px", "letterSpacing": "0" },
+    "small/mono":                  { "family": "Roboto Mono", "size": "12px", "weight": 400, "lineHeight": "18px", "letterSpacing": "0" }
+  }
+}

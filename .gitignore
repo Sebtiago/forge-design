@@ -1,0 +1,20 @@
+# Generated output — not part of the repo
+forge-output/
+kiro-output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Node (if someone adds a package.json locally)
+node_modules/
+.env
+.env.local
+
+# Logs
+*.log

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://forge-design.dev/token-schema/1.0",
+  "group": "spacing",
+  "tokens": {
+    "button/vertical-padding":   { "value": "4px" },
+    "button/horizontal-padding": { "value": "12px" },
+    "button/gap":                { "value": "8px" },
+    "button/icon-size":          { "value": "16px" },
+    "button/size-sm":            { "value": "28px" },
+    "container/padding":         { "value": "10px" }
+  }
+}

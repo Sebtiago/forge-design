@@ -1,0 +1,17 @@
+{
+  "$schema": "https://forge-design.dev/token-schema/1.0",
+  "group": "colors",
+  "tokens": {
+    "foreground/primary-light":          { "value": "#000000", "description": "Primary text on light surfaces" },
+    "foreground/primary-dark":           { "value": "#FFFFFF", "description": "Primary text on dark surfaces" },
+    "container/background":              { "value": "#FFFFFF99", "description": "Glassmorphism fill — white 60% alpha" },
+    "container/border":                  { "value": "#FFFFFF80", "description": "Glassmorphism stroke — white 50% alpha" },
+    "light-mode/container-background":   { "value": "transparent", "description": "Light surface fill (transparent, blur-only glass)" },
+    "light-mode/container-border":       { "value": "#FFFFFF", "description": "Light surface stroke" },
+    "dark-mode/container-background":    { "value": "#000000", "description": "Dark surface fill" },
+    "dark-mode/container-border":        { "value": "#FFFFFF", "description": "Dark surface stroke" },
+    "selected/light":                    { "value": "#2670E9", "description": "Selection accent — blue" },
+    "selected/light-bg":                 { "value": "rgba(38,112,233,0.3)", "description": "Selection background tint on light" },
+    "selected/dark-bg":                  { "value": "rgba(255,255,255,0.1)", "description": "Selection background tint on dark" }
+  }
+}
