@@ -481,16 +481,18 @@ Print a progress line before each component (calculate % = current/total * 100):
 - vue → `.vue`
 - svelte → `.svelte`
 
-**Generate the component code.** Rules:
-- Use the TypeScript interface/type pattern appropriate for the stack
-- Props must be typed — no `any`
-- All Figma variants → TypeScript union types
-- Tailwind classes use design tokens (neutral-900, not hardcoded colors)
-- For CSS Modules: generate a `.module.css` alongside the `.tsx`
-- JSDoc comment with the Figma description
-- ARIA attributes on interactive elements
-- Loading/disabled states for interactive components
+**Generate the component code.** Apply ALL rules from the "Component Quality Standards" section. Required minimum per component:
+- Semantic HTML + correct ARIA role, name, and state attributes
+- Full keyboard support per the WAI-ARIA APG pattern for this component type
+- TypeScript interface exported, extends native HTML element attributes
+- `React.forwardRef` on all input/button/link wrappers
 - `displayName` set on every component
+- No `any` types — props typed as union strings or booleans
+- All variants as TypeScript union types
+- All colors/spacing via token CSS variables — zero hardcoded values
+- Hover, focus-visible, disabled, loading states implemented
+- `className` prop accepted and merged onto root element
+- `...rest` spread onto root element
 
 **Generate the markdown docs.** Include: description, props table, usage examples, variants description, accessibility notes, Figma node ID.
 
@@ -934,15 +936,335 @@ Rule: PascalCase for the exported identifier. kebab-case for folder name and fil
 
 ---
 
+## Component Quality Standards
+
+Apply ALL rules in this section when generating any component file, regardless of stack or mode. These are non-negotiable defaults — not optional enhancements.
+
+---
+
+### 1. Accessibility — WCAG 2.2 AA + WAI-ARIA APG
+
+**HTML semantics first**
+- Always use the native semantic element when one exists: `<button>` not `<div onClick>`, `<a>` not `<span onClick>`, `<input>` not `<div contenteditable>`.
+- Never suppress browser defaults (focus ring, keyboard events) without replacing them.
+
+**Name, Role, Value (WCAG 4.1.2)**
+Every interactive element must expose:
+- **Name**: via visible label, `aria-label`, `aria-labelledby`, or `<label for>`. Never rely on placeholder alone.
+- **Role**: use semantic HTML or explicit `role` attribute.
+- **Value/State**: `aria-checked`, `aria-selected`, `aria-expanded`, `aria-current`, `aria-disabled`, `aria-invalid` — updated dynamically on state change.
+
+**Keyboard navigation (WCAG 2.1.1)**
+| Component type | Required keyboard support |
+|---|---|
+| Button | `Enter` + `Space` trigger action |
+| Link | `Enter` triggers navigation |
+| Input / Textarea | Standard text editing keys |
+| Checkbox / Radio | `Space` toggles; arrow keys move group |
+| Toggle / Switch | `Space` toggles |
+| Dialog / Modal | `Escape` closes; `Tab`/`Shift+Tab` cycles focus inside |
+| Dropdown / Select | `Arrow` keys navigate; `Enter` selects; `Escape` closes |
+| Tabs | `Arrow` keys switch tabs; `Tab` moves to panel |
+| Accordion | `Enter`/`Space` expands/collapses; `Arrow` keys navigate headers |
+| Combobox | `Arrow` navigates options; `Enter` selects; `Escape` clears/closes |
+
+**Focus management**
+- Every interactive element must be reachable via `Tab`. Use `tabindex="0"` for custom focusable elements.
+- Do not use `tabindex > 0`.
+- When a dialog opens: move focus to the first focusable element inside. When it closes: return focus to the trigger element.
+- Use `tabindex="-1"` only for programmatic focus (e.g. modal panels, skip-link targets).
+
+**Color contrast (WCAG 1.4.3 / 1.4.11)**
+- Normal text (< 18px regular / < 14px bold): minimum **4.5:1** ratio against background.
+- Large text (≥ 18px regular / ≥ 14px bold): minimum **3:1**.
+- UI components and icons that convey meaning: minimum **3:1** against adjacent colors.
+- Never use color as the only indicator of state (error, success, selected) — pair with icon, label, or pattern.
+
+**Motion (WCAG 2.3.3)**
+- Wrap animations in `@media (prefers-reduced-motion: reduce) { ... }` — disable or minimize transitions.
+
+**Error states (WCAG 3.3.1)**
+- Error inputs: set `aria-invalid="true"` and link to error message with `aria-describedby`.
+- Error message container: `role="alert"` so screen readers announce it immediately.
+
+**Images and icons**
+- Decorative icons: `aria-hidden="true"`.
+- Informative icons: `aria-label` on the containing button or an adjacent visually-hidden `<span>`.
+
+**Required ARIA patterns by component:**
+
+| Component | role | Required aria attributes |
+|---|---|---|
+| Button (custom) | `button` | `aria-pressed` (toggle), `aria-expanded` (menu), `aria-disabled` |
+| Input | — (use `<input>`) | `aria-label` or `<label>`, `aria-describedby` for hint/error, `aria-required`, `aria-invalid` |
+| Checkbox | `checkbox` | `aria-checked` |
+| Dialog / Modal | `dialog` | `aria-modal="true"`, `aria-labelledby` pointing to title |
+| Alert | `alert` | — (role already live) |
+| Tooltip | `tooltip` | trigger has `aria-describedby` pointing to tooltip id |
+| Tab list | `tablist` → tabs `tab` → panels `tabpanel` | `aria-selected`, `aria-controls`, `aria-labelledby` |
+| Accordion | `region` per panel | `aria-expanded` on trigger, `aria-controls` pointing to panel |
+| Badge / Status | `status` | — |
+| Spinner / Loader | `status` or `progressbar` | `aria-label="Loading"`, `aria-live="polite"` |
+
+---
+
+### 2. TypeScript Standards
+
+**Props interface**
+- Always define and export a named props interface (`ButtonProps`, `InputProps`).
+- Never use `any`. Use `unknown` if type is genuinely unknown.
+- Boolean props for binary options; string union types for 3+ options:
+  ```typescript
+  // Correct
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  // Wrong
+  variant?: string;
+  ```
+- Extend native HTML element attributes so consumers can pass all standard props:
+  ```typescript
+  export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    variant?: 'primary' | 'secondary' | 'outline';
+    size?: 'sm' | 'md' | 'lg';
+    loading?: boolean;
+  }
+  ```
+
+**forwardRef**
+All `<button>`, `<input>`, `<textarea>`, `<a>`, and `<select>` wrappers must use `React.forwardRef`:
+```typescript
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, ...props }, ref) => (
+    <input ref={ref} className={cn(baseStyles, className)} {...props} />
+  )
+);
+Input.displayName = 'Input';
+```
+
+**displayName**
+Every component must set `ComponentName.displayName = 'ComponentName'` for React DevTools visibility.
+
+**Strict null safety**
+- Optional props must have `?` and be handled with defaults or null checks.
+- Never assume optional props are defined without checking.
+
+---
+
+### 3. Component API Design
+
+**Composition over configuration**
+Prefer `children` for content slots over prop drilling:
+```typescript
+// Prefer
+<Card>
+  <Card.Header>Title</Card.Header>
+  <Card.Body>Content</Card.Body>
+</Card>
+// Over
+<Card title="Title" body="Content" />
+```
+Use compound components (static properties on the export) for complex components.
+
+**Controlled + uncontrolled support**
+For stateful components (Input, Checkbox, Toggle, Select):
+- Support both controlled (`value` + `onChange`) and uncontrolled (`defaultValue`).
+- Never make a component controlled-only or uncontrolled-only.
+
+**Prop naming conventions**
+| Pattern | Convention |
+|---|---|
+| Event handlers | `on` prefix: `onClick`, `onChange`, `onClose` |
+| Boolean states | `is` prefix when not obvious: `isLoading`, `isOpen`; or bare: `disabled`, `checked` |
+| Render props / slots | `render` prefix or descriptive: `renderIcon`, `leftSlot`, `footer` |
+| Size variants | `'sm' | 'md' | 'lg' | 'xl'` — always this scale, always strings |
+| Color / status | `'default' | 'primary' | 'success' | 'warning' | 'error'` |
+
+**className passthrough**
+Always accept and merge an optional `className` prop so consumers can extend styles:
+```typescript
+className={cn(baseStyles, variantStyles[variant], className)}
+```
+
+**Spread remaining props**
+Spread `...rest` onto the root element so consumers can pass `data-*`, `aria-*`, event handlers, and test IDs without Forge needing to enumerate them.
+
+---
+
+### 4. Visual Design Fidelity
+
+**Token usage — mandatory**
+- All colors: use CSS custom properties from `tokens.css` (e.g. `var(--color-primary-500)`).
+- All font sizes, weights, line heights: use typography tokens.
+- All spacing (padding, margin, gap): use spacing tokens or Tailwind spacing scale.
+- All border radii: use radius tokens.
+- All shadows: use effect tokens.
+- **Zero hardcoded hex values or px sizes inside component files.**
+
+**Dark mode**
+- All components must support light and dark mode via the `[data-theme="dark"]` selector on `<html>`.
+- Use token variables — they automatically switch. Never use hardcoded colors.
+
+**States**
+Every interactive component must visually represent ALL applicable states:
+- `default` — base appearance
+- `hover` — cursor feedback
+- `focus-visible` — keyboard focus ring (visible, never removed without replacement)
+- `active` / `pressed` — click feedback
+- `disabled` — reduced opacity + `cursor: not-allowed`, `pointer-events: none`
+- `loading` — spinner or skeleton, pointer events disabled
+- `error` — red border/ring, error message (inputs, forms)
+- `success` — success indicator (forms, upload)
+
+---
+
+### 5. Code Structure
+
+**File organization**
+Each component lives in its own folder:
+```
+atoms/button/
+  button.tsx       ← component + types
+  button.md        ← documentation
+```
+For CSS Modules stacks also include:
+```
+  button.module.css
+```
+
+**One component per file**
+No multi-component files. If a component needs sub-components (Card.Header, Card.Body), define them in the same file as named exports, not in separate files.
+
+**No side effects at module level**
+Component files must not execute code on import (no `document.querySelector`, no `window.*` calls outside hooks/effects).
+
+**Imports order**
+1. React / framework
+2. External libraries
+3. Internal tokens / utilities
+4. Types
+
+**Comments**
+Write no comments except:
+- JSDoc on the exported component function (description + `@param` only if props aren't self-explanatory)
+- A single `// [reason]` line when a non-obvious workaround is needed (e.g. browser bug fix)
+
+---
+
+### 6. Documentation Standards (`.md` files)
+
+Every component `.md` file must contain these sections in order:
+
+```markdown
+# ComponentName
+
+**Category:** [Atom|Molecule|Organism]  ·  **Figma:** [node-id or "—"]
+
+[One sentence: what this component is and when to use it.]
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| variant | 'primary'\|'secondary'\|'outline' | 'primary' | Visual style |
+| size | 'sm'\|'md'\|'lg' | 'md' | Component size |
+| disabled | boolean | false | Prevents interaction |
+| className | string | — | Additional CSS classes |
+| children | React.ReactNode | — | Slot content |
+
+## Usage
+
+\`\`\`tsx
+import { ComponentName } from './atoms/component-name/component-name';
+
+// Default
+<ComponentName>Label</ComponentName>
+
+// Variant
+<ComponentName variant="secondary" size="lg">Label</ComponentName>
+\`\`\`
+
+## Variants
+
+| Variant | When to use |
+|---------|-------------|
+| primary | Main call to action. One per screen section. |
+| secondary | Supporting actions alongside a primary. |
+| outline | Tertiary actions, destructive confirmations. |
+
+## States
+
+- `default` — base appearance
+- `hover` — subtle background shift
+- `focus-visible` — 2px ring offset, accent color
+- `disabled` — 40% opacity, cursor not-allowed
+
+## Accessibility
+
+- Uses semantic `<button>` element
+- Keyboard: `Enter` and `Space` trigger action
+- `aria-disabled` set when `disabled` prop is true
+- Loading state: `aria-busy="true"` + spinner with `aria-label="Loading"`
+- Passes WCAG 2.2 AA at all color contrast levels
+```
+
+---
+
+### 7. Testing Hints (generated as comments in `.md`)
+
+Add an "## Testing" section to every `.md` with a checklist:
+
+```markdown
+## Testing
+
+- [ ] Renders without errors in all variants
+- [ ] Keyboard: Tab reaches element, Enter/Space activates it
+- [ ] Screen reader announces name, role, and state correctly
+- [ ] disabled prop prevents click and sets cursor correctly
+- [ ] loading prop disables interaction and shows spinner
+- [ ] className prop appends without overwriting base styles
+- [ ] Dark mode: all text meets 4.5:1 contrast
+- [ ] Reduced motion: transitions disabled
+- [ ] ref forwarding: ref.current points to root DOM element
+```
+
+---
+
 ## Quality Checklist
 
-Before marking any component complete, verify:
-- [ ] Props interface uses correct TypeScript types — no `any`
-- [ ] All Figma variants represented as union types
-- [ ] ARIA attributes on interactive elements (buttons, inputs, modals)
-- [ ] JSDoc on the component function with Figma description
-- [ ] No inline styles, no hardcoded colors
+Before marking any component complete, verify ALL of the following:
+
+**TypeScript**
+- [ ] Named props interface exported — no `any` types
+- [ ] Props interface extends native HTML element attributes
+- [ ] All Figma variants as TypeScript union types
+- [ ] `React.forwardRef` used on button/input/link components
+- [ ] `displayName` set
+- [ ] `className` prop merged onto root element
+- [ ] `...rest` spread onto root element
+
+**Accessibility**
+- [ ] Semantic HTML element used (not div for interactive elements)
+- [ ] Correct ARIA role applied (if not using semantic HTML)
+- [ ] `aria-label` or linked `<label>` on all inputs
+- [ ] Dynamic ARIA state attributes (aria-expanded, aria-invalid, aria-checked…)
+- [ ] Keyboard event handlers match WAI-ARIA APG pattern for this component
+- [ ] Focus ring visible in focus-visible state
+- [ ] Error state: `aria-invalid="true"` + `aria-describedby` + `role="alert"` on message
+- [ ] Decorative icons have `aria-hidden="true"`
+- [ ] `@media (prefers-reduced-motion)` wraps all transitions
+
+**Visual**
+- [ ] Zero hardcoded hex colors — all via CSS custom properties
+- [ ] Zero hardcoded px sizes — all via token variables or spacing scale
+- [ ] All states rendered: default, hover, focus-visible, disabled, loading, error
+- [ ] Dark mode works via `[data-theme="dark"]` token swap (no extra code needed)
+
+**Documentation**
+- [ ] `.md` has Props table, Usage example, Variants table, States list, Accessibility section, Testing checklist
+- [ ] JSDoc on the component function
+
+**Preview**
 - [ ] Preview HTML renders without errors (Babel compiles cleanly)
 - [ ] Preview HTML shows ALL variants side by side
-- [ ] Markdown docs has filled-in props table
-- [ ] Usage example is valid JSX/Vue/Svelte
+- [ ] `postMessage` background listener included
